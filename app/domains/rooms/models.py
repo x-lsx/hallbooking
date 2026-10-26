@@ -20,7 +20,7 @@ class Building(Base, TimestampMixin):
     __tablename__ = "buildings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    number: Mapped[int] = mapped_column(Integer, unique=True)
+    number: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String(128))
     address: Mapped[str | None] = mapped_column(String(256))
     timezone: Mapped[str] = mapped_column(
@@ -45,10 +45,12 @@ class Room(Base, TimestampMixin):
     organization: Mapped[str | None] = mapped_column(String(128))
     number: Mapped[str] = mapped_column(String(32))
     name: Mapped[str | None] = mapped_column(String(128))
-    capacity: Mapped[int] = mapped_column(Integer, unique=True)
+    capacity: Mapped[int] = mapped_column(Integer)
     type: Mapped[str] = mapped_column(String(64))
     open_from: Mapped[time] = mapped_column(Time, server_default=text("'08:00'"))
     open_until: Mapped[time] = mapped_column(Time, server_default=text("'20:00'"))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
 
     building: Mapped["Building"] = relationship(back_populates="rooms")
+
+    moderators: Mapped[list["RoomModerator"]] = relationship(back_populates="room")

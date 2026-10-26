@@ -1,14 +1,17 @@
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.jwt_utils import decode_access_token  # должен бросать InvalidTokenError
 from app.db.postgres import get_db
+from app.domains.rooms.moderators.services import RoomModeratorService
 from app.domains.users.models import User
 from app.domains.users.repository import UserRepository
+
+from .exceptions import PermissionDeniedError
 
 security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
@@ -44,7 +47,9 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security_optional)],
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(security_optional)
+    ],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> User | None:
     """Текущий пользователь или None, если токена нет или он невалиден."""
@@ -65,5 +70,8 @@ async def require_superuser(user: Annotated[User, Depends(get_current_user)]) ->
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 SuperUser = Annotated[User, Depends(require_superuser)]

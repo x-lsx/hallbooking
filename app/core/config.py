@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     STATIC_DIR: Path = BASE_DIR / "static"
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
 
+    API_URL: str 
+    VERIFICATION_TOKEN_EXPIRE_HOURS: int
+    PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
