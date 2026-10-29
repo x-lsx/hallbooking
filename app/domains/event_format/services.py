@@ -19,6 +19,7 @@ class EventFormatService:
         event_formats = await self.event_format_repository.get_all()
         return [EventFormatResponse.model_validate(ef) for ef in event_formats]
 
+    
     async def create_event_format(
         self, event_format_create: EventFormatCreate
     ) -> EventFormatResponse:

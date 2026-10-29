@@ -52,5 +52,8 @@ class Room(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
 
     building: Mapped["Building"] = relationship(back_populates="rooms")
-
     moderators: Mapped[list["RoomModerator"]] = relationship(back_populates="room")
+    event_formats: Mapped[list["EventFormat"]] = relationship(
+        secondary="rooms_formats",
+        back_populates="rooms",
+    )

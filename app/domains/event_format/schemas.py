@@ -1,6 +1,10 @@
-from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+class EventFormatShort(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
 
 
 class EventFormatResponse(BaseModel):
@@ -8,6 +12,7 @@ class EventFormatResponse(BaseModel):
     id: int
     name: str
     description: str | None = None
+
 
 class EventFormatCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)

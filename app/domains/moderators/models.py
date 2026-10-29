@@ -1,13 +1,11 @@
-from datetime import time, datetime
+from datetime import datetime, time
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
-    Time,
-    UniqueConstraint,
     func,
-    DateTime,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,19 +31,14 @@ class RoomModerator(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    room_id: Mapped[int] = mapped_column(
-        ForeignKey("rooms.id", ondelete="CASCADE"), index=True
-    )
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
-    )
-    valid_from: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    
+    room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    granted_by: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    
+    granted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     room: Mapped["Room"] = relationship(back_populates="moderators")

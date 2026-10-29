@@ -9,7 +9,6 @@ class RoomConflict(ConflictError):
     code = "room_conflict"
     message = "Room conflict"
     
-    
 class BuildingNotFound(NotFoundError):
     code = "building_not_found"
     message = "Building not found"

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class UserShort(BaseModel):
@@ -23,7 +23,7 @@ class ModeratorResponse(BaseModel):
     
 class ModeratorAssign(BaseModel):
     user_id: int
-    valid_until: datetime | None = None  # None = бессрочно (только админ)
+    valid_until: datetime | None = None
  
     @field_validator("valid_until")
     @classmethod

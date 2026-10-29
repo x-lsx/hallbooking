@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.jwt_utils import decode_access_token  # должен бросать InvalidTokenError
 from app.db.postgres import get_db
-from app.domains.rooms.moderators.services import RoomModeratorService
+from app.domains.moderators.services import RoomModeratorService
 from app.domains.users.models import User
 from app.domains.users.repository import UserRepository
 
@@ -70,8 +70,5 @@ async def require_superuser(user: Annotated[User, Depends(get_current_user)]) ->
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-
 OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 SuperUser = Annotated[User, Depends(require_superuser)]
