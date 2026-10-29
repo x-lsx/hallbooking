@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -32,6 +32,6 @@ class ModeratorAssign(BaseModel):
             return v
         if v.tzinfo is None:
             raise ValueError("Укажите дату вместе с часовым поясом")
-        if v <= datetime.now(timezone.utc):
+        if v <= datetime.now(UTC):
             raise ValueError("Дата окончания должна быть в будущем")
         return v
