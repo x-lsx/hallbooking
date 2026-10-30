@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.mixins import TimestampMixin
 from app.db.postgres import Base
@@ -28,6 +28,7 @@ class User(Base, TimestampMixin):
     department_id: Mapped[int | None] = mapped_column(
         ForeignKey("departments.id", ondelete="RESTRICT"), index=True, nullable=True
     )
+    department: Mapped["Department"] = relationship(lazy="raise")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, mail={self.email}, active={self.is_active})>"

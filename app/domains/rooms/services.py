@@ -3,7 +3,7 @@ import logging
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, NotFoundError, UnprocessableError
+from app.core.exceptions import UnprocessableError
 from app.core.paginations import PaginatedResponse
 from app.domains.event_format.models import EventFormat
 from app.domains.event_format.repository import EventFormatRepository
@@ -35,7 +35,6 @@ class RoomService:
         self.logger = logging.getLogger(__name__)
 
     async def _get_room_or_404(self, room_id: int) -> Room:
-        """ORM-объект для изменений. Наружу его не отдаём."""
         room = await self.room_repository.get_by_id(room_id)
         if room is None:
             raise RoomNotFound()

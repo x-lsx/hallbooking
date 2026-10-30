@@ -1,8 +1,10 @@
-from sqlalchemy import func, select
+from datetime import datetime
+
+from sqlalchemy import Sequence, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from .models import Booking
+from .models import Booking, BookingStatus
 from .schemas import BookingFilter
 
 
@@ -18,31 +20,50 @@ class BookingRepository:
             selectinload(Booking.department),
             selectinload(Booking.created_by),
             selectinload(Booking.decided_by),
-    )
-
-    @staticmethod
-    def _apply_filter(stmt, f: BookingFilter):
-        if f.start_at is not None:
-            stmt = stmt.where(Booking.end_at > f.start_at)
-        if f.end_at is not None:
-            stmt = stmt.where(Booking.start_at < f.end_at)
-        return stmt
-
+        )
+ 
     async def get_by_id(self, booking_id: int) -> Booking | None:
         stmt = (
             select(Booking)
             .where(Booking.id == booking_id)
             .options(*self._load_options())
         )
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def get_all(self, f: BookingFilter) -> list[Booking]:
-        base = self._apply_filter(select(Booking), f)
-        stmt = base.order_by(
-            Booking.start_at.asc()
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+ 
+    async def list_for_room(
+        self,
+        room_id: int,
+        f: BookingFilter,
+        statuses: Sequence[BookingStatus] | None = None,
+    ) -> list[Booking]:
+        stmt = select(Booking).where(
+            Booking.room_id == room_id,
+            Booking.end_at > f.start_at,
+            Booking.start_at < f.end_at,
         )
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
-    
-    
+        if statuses:
+            stmt = stmt.where(Booking.status.in_(statuses))
+        stmt = stmt.order_by(Booking.start_at, Booking.id)
+        return list((await self.db.execute(stmt)).scalars().all())
+ 
+    async def find_conflicts(
+        self,
+        room_id: int,
+        start_at: datetime,
+        end_at: datetime,
+        exclude_id: int | None = None,
+    ) -> list[Booking]:
+        stmt = select(Booking).where(
+            Booking.room_id == room_id,
+            Booking.status == BookingStatus.APPROVED,
+            Booking.end_at > start_at,
+            Booking.start_at < end_at,
+        )
+        if exclude_id is not None:
+            stmt = stmt.where(Booking.id != exclude_id)
+        return list((await self.db.execute(stmt)).scalars().all())
+ 
+    async def create(self, booking: Booking) -> Booking:
+        self.db.add(booking)
+        await self.db.flush() 
+        return booking

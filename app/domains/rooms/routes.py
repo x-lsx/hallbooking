@@ -4,16 +4,16 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.param_functions import Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.moderators.dependencies import RoomManager
-from app.core.dependencies import require_superuser, SuperUser
+from app.core.dependencies import SuperUser, require_superuser
 from app.core.paginations import PaginatedResponse
 from app.db.postgres import get_db
+from app.domains.moderators.dependencies import RoomManager
 from app.domains.moderators.routes import router as moderators_router
 from app.domains.rooms.schemas import (
     RoomCreate,
-    RoomUpdate,
     RoomFilter,
     RoomResponse,
+    RoomUpdate,
 )
 from app.domains.rooms.services import RoomService
 
