@@ -13,6 +13,7 @@ from .schemas import (
     BookingFilter,
     BookingOfflineCreate,
     BookingOnlineCreate,
+    BookingReject,
     BookingResponse,
 )
 from .services import BookingService
@@ -43,6 +44,31 @@ async def get_by_id(
 ):
     return await service.get_booking(actor, booking_id)
 
+@router.post("/{booking_id}/cancel", response_model=BookingResponse)
+async def cancel_booking(
+    booking_id: int,
+    actor: CurrentUser,
+    service: BookingServiceDep,
+):
+    return await service.moder_cancel(actor, booking_id)
+
+@router.post("/{booking_id}/approve", response_model=BookingResponse)
+async def approve_booking(
+    booking_id: int,
+    actor: CurrentUser,
+    service: BookingServiceDep,
+):
+    return await service.moder_approve(actor, booking_id)
+
+@router.post("/{booking_id}/reject", response_model=BookingResponse)
+async def reject_booking(
+    booking_id: int,
+    data: BookingReject,
+    actor: CurrentUser,
+    service: BookingServiceDep,
+):
+    return await service.moder_reject(actor, booking_id, data.reject_reason)
+
 room_router = APIRouter(prefix="/rooms/{room_id}/bookings", tags=["bookings"])
 
 @room_router.get("",response_model=list[BookingCalendarResponse])
@@ -62,3 +88,4 @@ async def create_offline(
     service: BookingServiceDep,
 ):
     return await service.create_offline(room_id, actor, data)
+

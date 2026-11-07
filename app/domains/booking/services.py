@@ -1,6 +1,9 @@
+import logging
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError
@@ -29,6 +32,9 @@ from .schemas import (
 TIME_STEP_MINUTES = 15
 MIN_DURATION = timedelta(minutes=45)
 
+EXCLUSION_VIOLATION = "23P01"
+FOREIGN_KEY_VIOLATION = "23503"
+
 
 class BookingService:
     def __init__(self, db: AsyncSession):
@@ -36,6 +42,7 @@ class BookingService:
         self.booking_repo = BookingRepository(db)
         self.room_repo = RoomRepository(db)
         self.moder_serv = RoomModeratorService(db)
+        self.logger = logging.getLogger(__name__)
 
     async def create_online(self, actor: User, data: BookingOnlineCreate) -> BookingResponse:
         room = await self._get_room(data.room_id)
@@ -54,6 +61,10 @@ class BookingService:
             title=data.title,
             room_id=room.id,
             event_id=data.event_format_id,
+            requester_first_name=actor.first_name,
+            requester_last_name=actor.last_name,
+            requester_middle_name=actor.middle_name,
+            requester_phone=actor.phone_number,
             department_id=department_id,
             created_by_id=actor.id,
             attendees_count=data.attendees_count,
@@ -64,7 +75,7 @@ class BookingService:
             status=BookingStatus.PENDING,
         )
         async with self._guard():
-            await self.repository.create(booking)
+            await self.booking_repo.create(booking)
             booking_id = booking.id
             await self.db.commit()
  
@@ -81,21 +92,21 @@ class BookingService:
             data.attendees_count,
             data.event_format_id,
         )
-        conflicts = await self.repository.find_conflicts(room.id, data.start_at, data.end_at)
+        conflicts = await self.booking_repo.find_conflicts(room.id, data.start_at, data.end_at)
         if conflicts:
             raise BookingConflict(self._conflict_message(conflicts, room))
         
         booking = Booking(
             title=data.title,
-            requster_first_name=data.requester_first_name,
-            requster_last_name=data.requester_last_name,
-            requster_middle_name=data.requester_middle_name,
-            requster_phone=data.requester_phone,
+            requester_first_name=data.requester_first_name,
+            requester_last_name=data.requester_last_name,
+            requester_middle_name=data.requester_middle_name,
+            requester_phone=data.requester_phone,
             created_by_id=actor.id,
             room_id=room.id,
             event_id=data.event_format_id,
             department_id=data.department_id,
-            deceided_by_id=actor.id,
+            decided_by_id=actor.id,
             source=SourceType.OFFLINE,
             status=BookingStatus.APPROVED,
             attendees_count=data.attendees_count,
@@ -105,7 +116,7 @@ class BookingService:
             reject_reason=None,
         )
         async with self._guard():
-            await self.repository.create(booking)
+            await self.booking_repo.create(booking)
             booking_id = booking.id
             await self.db.commit()
  
@@ -126,7 +137,7 @@ class BookingService:
             if is_moderator
             else [BookingStatus.APPROVED]
         )
-        bookings = await self.repository.list_for_room(room_id, f, statuses)
+        bookings = await self.booking_repo.list_for_room(room_id, f, statuses)
         return [
             BookingCalendarResponse(
                 id=b.id,
@@ -149,20 +160,77 @@ class BookingService:
 
         return BookingResponse.model_validate(booking)
 
+    async def moder_approve(self, actor: User, booking_id: int) -> BookingResponse:
+        booking, room = await self._get_for_moderation(actor, booking_id)
+        if booking.status != BookingStatus.PENDING:
+            raise BookingStateError("Заявка уже рассмотрена.") 
+        
+        conflicts = await self.booking_repo.find_conflicts(
+            booking.room_id, booking.start_at, booking.end_at, exclude_id=booking.id
+        )
+        if conflicts:
+            raise BookingConflict(self._conflict_message(conflicts, room))
+
+        booking.status = BookingStatus.APPROVED
+        booking.decided_by_id = actor.id
+        booking.decided_at = datetime.now(UTC)
+        async with self._guard():
+            await self.db.flush()
+            await self.db.commit()
+
+        self.logger.info("booking approved: id=%s by=%s", booking_id, actor.id)
+        new_booking = await self.booking_repo.get_by_id(booking_id)
+        return BookingResponse.model_validate(new_booking)
+    
+    async def moder_reject(self, actor: User, booking_id: int, reason: str) -> BookingResponse:
+        booking, _ = await self._get_for_moderation(actor, booking_id)
+        if booking.status != BookingStatus.PENDING:
+            raise BookingStateError("Заявка уже рассмотрена.") 
+        
+        booking.status = BookingStatus.REJECTED
+        booking.reject_reason = reason
+        booking.decided_by_id = actor.id
+        await self.db.commit()
+
+        self.logger.info("booking rejected: id=%s by=%s", booking_id, actor.id)
+        new_booking = await self.booking_repo.get_by_id(booking_id)
+        return BookingResponse.model_validate(new_booking)
+
+    async def moder_cancel(self, actor: User, booking_id: int) -> BookingResponse:
+        booking = await self.booking_repo.get_by_id(booking_id)
+        if booking is None:
+            raise BookingNotFound()
+
+        is_author = booking.created_by_id == actor.id
+        if not is_author and not await self.moder_serv.can_moderate(actor, booking.room_id):
+            raise BookingNotFound()
+
+        if booking.status not in (BookingStatus.PENDING, BookingStatus.APPROVED):
+            raise BookingStateError("Запись уже отменена или отклонена")
+        if booking.end_at <= datetime.now(UTC):
+            raise BookingStateError("Мероприятие уже завершено")
+
+        booking.status = BookingStatus.CANCELLED
+        await self.db.commit()
+
+        self.logger.info("booking cancelled: id=%s by=%s", booking_id, actor.id)
+        new_booking = await self.booking_repo.get_by_id(booking_id)
+        return BookingResponse.model_validate(new_booking)
+
     async def _get_room(self, room_id: int) -> Room:
-        room = await self.room_repository.get_by_id(room_id)
+        room = await self.room_repo.get_by_id(room_id)
         if room is None:
             raise RoomNotFound()
         return room
 
     async def _require_moderator(self, actor: User, room_id: int) -> None:
-        if not await self.moderators.can_moderate(actor, room_id):
+        if not await self.moder_serv.can_moderate(actor, room_id):
             raise PermissionDeniedError("Нет прав на этот зал")
 
     async def _get_for_moderation(
         self, actor: User, booking_id: int
     ) -> tuple[Booking, Room]:
-        booking = await self.repository.get_by_id(booking_id)
+        booking = await self.booking_repo.get_by_id(booking_id)
         if booking is None:
             raise BookingNotFound()
         await self._require_moderator(actor, booking.room_id)
@@ -203,7 +271,7 @@ class BookingService:
         if attendees_count > room.capacity:
             raise BookingInvalid(f"Вместимость зала: {room.capacity}")
 
-        if room.formats and event_format_id not in {f.id for f in room.formats}:
+        if room.event_formats and event_format_id not in {f.id for f in room.event_formats}:
             raise BookingInvalid("Этот формат не поддерживается залом")
 
 
@@ -215,3 +283,20 @@ class BookingService:
             s, e = c.start_at.astimezone(tz), c.end_at.astimezone(tz)
             parts.append(f"«{c.title}» {s:%d.%m %H:%M}–{e:%H:%M}")
         return "Зал занят в это время: " + "; ".join(parts)
+
+
+
+    @asynccontextmanager
+    async def _guard(self):
+        """Превращает ошибки БД в понятные доменные исключения."""
+        try:
+            yield
+        except IntegrityError as e:
+            await self.db.rollback()
+            sqlstate = getattr(e.orig, "sqlstate", None)
+            if sqlstate == EXCLUSION_VIOLATION:
+                # гонка: между проверкой и записью другой запрос занял слот
+                raise BookingConflict() from e
+            if sqlstate == FOREIGN_KEY_VIOLATION:
+                raise BookingInvalid("Указанный формат или подразделение не существует") from e
+            raise

@@ -40,10 +40,9 @@ class BookingResponse(BaseModel):
     requester_phone: str | None
     created_by_id: int
     room_id: int
-    event_format_id: int
+    event_id: int
     department_id: int
     decided_by_id: int | None
-    decided_at: AwareDatetime | None
     source: SourceType
     status: BookingStatus
     attendees_count: int
@@ -82,3 +81,5 @@ class BookingOfflineCreate(BookingBase):
     requester_phone: str = Field(min_length=5, max_length=20)
  
  
+class BookingReject(BaseModel):
+    reject_reason: str = Field(min_length=1, max_length=512)

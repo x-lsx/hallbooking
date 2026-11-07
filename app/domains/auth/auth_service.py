@@ -14,6 +14,7 @@ from app.core.security import hashed_password, verify_password
 from app.db.redis import Redis
 from app.domains.auth.schemas import ChangePassword, UserCreate
 from app.domains.users.exceptions import UserNotFound
+from app.domains.users.models import User
 from app.domains.users.repository import UserRepository
 from app.tasks.send_confirmation_email import send_confirmation_email
 from app.tasks.send_reset_password_email import send_password_reset_email
@@ -60,7 +61,7 @@ class AuthService:
         user_data = user_create.model_dump(exclude={"password"})
         user_data["hashed_password"] = hashed_password(user_create.password)
 
-        new_user = await self.user_repository.create(user_data)
+        new_user = await self.user_repository.create(User(**user_data))
         await self.user_repository.db.commit()
 
         access_token = create_access_token(new_user.id)

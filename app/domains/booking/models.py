@@ -62,10 +62,10 @@ class Booking(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(128), nullable=False)
 
-    requster_first_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    requster_last_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    requster_middle_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    requster_phone: Mapped[str] = mapped_column(String(20), nullable=False)
+    requester_first_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    requester_last_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    requester_middle_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    requester_phone: Mapped[str] = mapped_column(String(20), nullable=False)
 
     created_by_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT")
