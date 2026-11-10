@@ -1,14 +1,16 @@
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.paginations import PaginatedResponse
+from app.domains.rooms.schemas import RoomFilter, RoomResponse
 
 from app.domains.rooms.exceptions import RoomNotFound
 from app.domains.rooms.repository import RoomRepository
 from app.domains.users.exceptions import UserNotFound
 from app.domains.users.models import User
 from app.domains.users.repository import UserRepository
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .exceptions import ModeratorAlreadyAssigned, ModeratorInvalid, ModeratorNotFound
 from .models import RoomModerator
@@ -40,6 +42,16 @@ class RoomModeratorService:
     async def get_my_room_ids(self, user: User) -> list[int]:
         assignments = await self.repository.get_by_user(user.id)
         return [a.room_id for a in assignments]
+
+    async def list_my_rooms(
+        self, actor: User, f: RoomFilter
+    ) -> PaginatedResponse[RoomResponse]:
+        room_ids = None if actor.is_superuser else await self.get_my_room_ids(actor)
+        rooms, total = await self.room_repository.list(f, room_ids=room_ids)
+        return PaginatedResponse[RoomResponse](
+            items=[RoomResponse.model_validate(room) for room in rooms],
+            total=total, page=f.page, size=f.size,
+        )
 
     async def assign(
         self, actor: User, room_id: int, data: ModeratorAssign

@@ -10,6 +10,13 @@ from app.domains.users.models import User
 from .services import RoomModeratorService
 
 
+def get_moderator_service(db: AsyncSession = Depends(get_db)) -> RoomModeratorService:
+    return RoomModeratorService(db)
+
+
+ModeratorServiceDep = Annotated[RoomModeratorService, Depends(get_moderator_service)]
+
+
 async def require_room_moderator(
     room_id: int,
     user: CurrentUser,

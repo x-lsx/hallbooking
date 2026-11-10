@@ -1,5 +1,7 @@
 from datetime import time
 
+from app.core.mixins import TimestampMixin
+from app.db.postgres import Base
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -11,9 +13,6 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.core.mixins import TimestampMixin
-from app.db.postgres import Base
 
 
 class Building(Base, TimestampMixin):

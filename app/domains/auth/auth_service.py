@@ -1,7 +1,6 @@
 import logging
 
 import jwt
-from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -165,23 +164,15 @@ class AuthService:
     async def confirm_reset_password(self, token: str, new_password: str):
         user_id = await self.token_service.get_user_id_by_password_reset_token(token)
         if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired password reset token",
-            )
+            raise InvalidResetToken()
         
         user = await self.user_repository.get_by_id(user_id)
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
+            raise UserNotFound()
         
         hashed_new_password = hashed_password(new_password)
         if verify_password(new_password, user.hashed_password):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="New password must be different from the old one"
-            )
+            raise SamePassword()
         
         await self.user_repository.update(
             user_id,

@@ -13,23 +13,23 @@ class UserService:
         self.logger = logging.getLogger(__name__)
         
     async def get_user_by_id(self, user_id: int) -> UserResponse:
-        user = await self.user_repository.get_by_id(user_id)
+        user = await self.user_repository.get_with_department(user_id)
         if not user:
             raise UserNotFound(f"User with id {user_id} not found")
         return UserResponse.model_validate(user)
 
     async def get_user_by_email(self, email: str) -> UserResponse:
-        user = await self.user_repository.get_by_email(email)
+        user = await self.user_repository.get_by_email_with_department(email)
         if not user:
             raise UserNotFound(f"User with email {email} not found")
         return UserResponse.model_validate(user)
     
     async def update_user(self, user_id: int, user_update: UserUpdate) -> UserResponse:
-        user = await self.user_repository.get_by_id(user_id)
+        user = await self.user_repository.get_with_department(user_id)
         if not user:
             raise UserNotFound(f"User with id {user_id} not found")
         
         update_data = user_update.model_dump(exclude_unset=True)
-        updated_user = await self.user_repository.update(user_id, update_data)
+        await self.user_repository.update(user_id, update_data)
         await self.user_repository.db.commit()
-        return UserResponse.model_validate(updated_user)
+        return await self.get_user_by_id(user_id)

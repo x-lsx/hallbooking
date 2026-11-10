@@ -31,6 +31,14 @@ class UserRepository:
         stmt = select(User).where(User.email == email.lower())
         return (await self.db.execute(stmt)).scalar_one_or_none()
 
+    async def get_by_email_with_department(self, email: str) -> User | None:
+        stmt = (
+            select(User)
+            .where(User.email == email.lower())
+            .options(self._with_department())
+        )
+        return (await self.db.execute(stmt)).scalar_one_or_none()
+
     async def get_by_search(self, search: str, limit: int = SEARCH_LIMIT) -> list[User]:
         stmt = (
             select(User)

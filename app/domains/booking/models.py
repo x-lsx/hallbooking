@@ -64,7 +64,7 @@ class Booking(Base, TimestampMixin):
 
     requester_first_name: Mapped[str] = mapped_column(String(128), nullable=False)
     requester_last_name: Mapped[str] = mapped_column(String(128), nullable=False)
-    requester_middle_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    requester_middle_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     requester_phone: Mapped[str] = mapped_column(String(20), nullable=False)
 
     created_by_id: Mapped[int] = mapped_column(

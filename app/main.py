@@ -4,12 +4,13 @@ from fastapi_swagger import patch_fastapi
 
 import app.db.models
 from app.core.config import settings
-from app.core.error_handlers import register_exception_handlers
+from app.core.error_handlers import ErrorResponse, register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.lifespan import lifespan
 from app.domains.auth.auth_routes import router as auth_router
 from app.domains.booking.routes import room_router as room_bookings_router
 from app.domains.booking.routes import router as bookings_router
+from app.domains.booking.routes import requests_router as booking_requests_router
 from app.domains.departments.routes import router as departments_router
 from app.domains.event_format.routes import router as event_format_routes
 from app.domains.rooms.buildings_routes import router as buildings_router
@@ -21,6 +22,7 @@ configure_logging()
 app = FastAPI(
     title="Demo app",
     lifespan=lifespan,
+    responses={code: {"model": ErrorResponse} for code in (400, 401, 403, 404, 405, 409, 422, 500)},
 )
 patch_fastapi(app, docs_url="/api/docs")
 
@@ -44,6 +46,7 @@ app.include_router(buildings_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
 app.include_router(bookings_router, prefix="/api")
 app.include_router(room_bookings_router, prefix="/api")
+app.include_router(booking_requests_router, prefix="/api")
 app.include_router(departments_router, prefix="/api")
 
 @app.get("/health")

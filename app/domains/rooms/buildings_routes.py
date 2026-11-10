@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.param_functions import Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dependencies import SuperUser
 from app.db.postgres import get_db
 
 from app.domains.rooms.schemas import BuildingResponse, BuildingCreate
@@ -20,6 +21,7 @@ async def get_buildings(
 
 @router.post("", response_model=BuildingResponse, status_code=status.HTTP_201_CREATED)
 async def create_building(
+    actor: SuperUser,
     building_data: BuildingCreate = Body(...),
     db: AsyncSession = Depends(get_db)
 ):

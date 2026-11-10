@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints, field_validator
 
 from app.domains.departments.schemas import DepartmentResponse
 
@@ -10,7 +10,12 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 class UserUpdate(BaseModel):
     first_name: Name | None = None
     last_name: Name | None = None
-    middle_name: Name | None
+    middle_name: Name | None = None
+
+    @field_validator("middle_name", mode="before")
+    @classmethod
+    def normalize_middle_name(cls, value: str | None) -> str | None:
+        return value.strip() or None if isinstance(value, str) else value
 
 
 class UserResponse(BaseModel):
@@ -22,7 +27,7 @@ class UserResponse(BaseModel):
     last_name: str | None
     middle_name: str | None
     phone_number: str 
-    department: DepartmentResponse
+    department: DepartmentResponse | None
     is_active: bool
     is_superuser: bool
     is_verified: bool

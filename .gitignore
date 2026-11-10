@@ -128,13 +128,8 @@ celerybeat.pid
 *.sqlite
 *.sqlite3
 
-# Alembic
-migrations/versions/*.py
-!migrations/versions/__init__.py
-
 # Docker
 docker-compose.override.yml
-.dockerignore
 
 # IDE / Editor
 .vscode/

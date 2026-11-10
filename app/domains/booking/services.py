@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError
+from app.core.paginations import PaginatedResponse
 from app.domains.moderators.services import RoomModeratorService
 from app.domains.rooms.exceptions import RoomNotFound
 from app.domains.rooms.models import Room
@@ -24,6 +25,7 @@ from .repository import BookingRepository
 from .schemas import (
     BookingCalendarResponse,
     BookingFilter,
+    BookingListFilter,
     BookingOfflineCreate,
     BookingOnlineCreate,
     BookingResponse,
@@ -44,7 +46,29 @@ class BookingService:
         self.moder_serv = RoomModeratorService(db)
         self.logger = logging.getLogger(__name__)
 
+    async def list_my(
+        self, actor: User, f: BookingListFilter
+    ) -> PaginatedResponse[BookingResponse]:
+        bookings, total = await self.booking_repo.list_by_user(actor.id, f)
+        return PaginatedResponse[BookingResponse](
+            items=[BookingResponse.model_validate(item) for item in bookings],
+            total=total, page=f.page, size=f.size,
+        )
+
+    async def list_room_requests(
+        self, actor: User, room_id: int, f: BookingListFilter
+    ) -> PaginatedResponse[BookingResponse]:
+        await self._require_moderator(actor, room_id)
+        await self._get_room(room_id)
+        bookings, total = await self.booking_repo.list_requests_for_room(room_id, f)
+        return PaginatedResponse[BookingResponse](
+            items=[BookingResponse.model_validate(item) for item in bookings],
+            total=total, page=f.page, size=f.size,
+        )
+
     async def create_online(self, actor: User, data: BookingOnlineCreate) -> BookingResponse:
+        if not actor.first_name or not actor.last_name or not actor.phone_number:
+            raise BookingInvalid("Для бронирования заполните имя, фамилию и телефон в профиле")
         room = await self._get_room(data.room_id)
         self._validate_slot(
             room,
@@ -130,7 +154,6 @@ class BookingService:
 
         await self._get_room(room_id)
 
-        bookings = await self.booking_repo.list_for_room(room_id, f)
         is_moderator = await self.moder_serv.can_moderate(actor, room_id)
         statuses = (
             [BookingStatus.PENDING, BookingStatus.APPROVED]
@@ -173,7 +196,6 @@ class BookingService:
 
         booking.status = BookingStatus.APPROVED
         booking.decided_by_id = actor.id
-        booking.decided_at = datetime.now(UTC)
         async with self._guard():
             await self.db.flush()
             await self.db.commit()

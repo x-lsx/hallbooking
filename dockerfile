@@ -37,10 +37,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
 RUN useradd --create-home --uid 1000 appuser
 
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
-COPY --chown=appuser:appuser . .
+COPY --chown=appuser:appuser app ./app
+COPY --chown=appuser:appuser migrations ./migrations
+COPY --chown=appuser:appuser alembic.ini ./alembic.ini
 
 USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,13 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
-from fastapi.param_functions import Body
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.dependencies import SuperUser, require_superuser
+from app.core.dependencies import CurrentUser, SuperUser, require_superuser
 from app.core.paginations import PaginatedResponse
 from app.db.postgres import get_db
-from app.domains.moderators.dependencies import RoomManager
+from app.domains.moderators.dependencies import ModeratorServiceDep, RoomManager
 from app.domains.moderators.routes import router as moderators_router
 from app.domains.rooms.schemas import (
     RoomCreate,
@@ -16,6 +12,9 @@ from app.domains.rooms.schemas import (
     RoomUpdate,
 )
 from app.domains.rooms.services import RoomService
+from fastapi import APIRouter, Depends, Query, status
+from fastapi.param_functions import Body
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -24,6 +23,15 @@ router = APIRouter(prefix="/rooms", tags=["rooms"])
 async def list(f: Annotated[RoomFilter, Query()], db: AsyncSession = Depends(get_db)):
     service = RoomService(db)
     return await service.list(f)
+
+
+@router.get("/my", response_model=PaginatedResponse[RoomResponse])
+async def list_my_rooms(
+    actor: CurrentUser,
+    filters: Annotated[RoomFilter, Query()],
+    service: ModeratorServiceDep,
+) -> PaginatedResponse[RoomResponse]:
+    return await service.list_my_rooms(actor, filters)
 
 
 @router.get("/{room_id}", response_model=RoomResponse)

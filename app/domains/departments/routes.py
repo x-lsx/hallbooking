@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 
+from app.core.dependencies import SuperUser
 from app.db.postgres import dbDep
 
 from .schemas import DepartmentCreate, DepartmentResponse
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 @router.post("", response_model=DepartmentResponse, status_code=status.HTTP_201_CREATED,)
 async def create_department(
     data: DepartmentCreate,
+    actor: SuperUser,
     db: dbDep,
 ):
     service = DepartmentService(db)

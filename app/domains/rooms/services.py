@@ -1,8 +1,5 @@
 import logging
 
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.exceptions import UnprocessableError
 from app.core.paginations import PaginatedResponse
 from app.domains.event_format.models import EventFormat
@@ -14,6 +11,8 @@ from app.domains.rooms.exceptions import (
     RoomNotFound,
 )
 from app.domains.rooms.models import Building, Room
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .repository import BuildingRepository, RoomRepository
 from .schemas import (

@@ -41,7 +41,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     container_name: fastapi_app
     restart: unless-stopped
     env_file:

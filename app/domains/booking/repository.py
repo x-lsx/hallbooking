@@ -1,11 +1,13 @@
 from datetime import datetime
+from collections.abc import Sequence
 
-from sqlalchemy import Sequence, select
+from sqlalchemy import func, select
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from .models import Booking, BookingStatus
-from .schemas import BookingFilter
+from .schemas import BookingFilter, BookingListFilter
 
 
 class BookingRepository:
@@ -21,7 +23,7 @@ class BookingRepository:
             selectinload(Booking.created_by),
             selectinload(Booking.decided_by),
         )
- 
+
     async def get_by_id(self, booking_id: int) -> Booking | None:
         stmt = (
             select(Booking)
@@ -29,6 +31,45 @@ class BookingRepository:
             .options(*self._load_options())
         )
         return (await self.db.execute(stmt)).scalar_one_or_none()
+
+    @staticmethod
+    def _list_conditions(f: BookingListFilter) -> list[ColumnElement[bool]]:
+        conditions: list[ColumnElement[bool]] = []
+        if f.statuses:
+            conditions.append(Booking.status.in_(f.statuses))
+        if f.room_id is not None:
+            conditions.append(Booking.room_id == f.room_id)
+        if f.start_at is not None:
+            conditions.append(Booking.end_at > f.start_at)
+        if f.end_at is not None:
+            conditions.append(Booking.start_at < f.end_at)
+        return conditions
+
+    async def _list(
+        self, scope: ColumnElement[bool], f: BookingListFilter
+    ) -> tuple[list[Booking], int]:
+        conditions = [scope, *self._list_conditions(f)]
+        total = await self.db.scalar(
+            select(func.count()).select_from(Booking).where(*conditions)
+        )
+        stmt = (
+            select(Booking)
+            .where(*conditions)
+            .order_by(Booking.created_at.desc(), Booking.id.desc())
+            .offset(f.offset)
+            .limit(f.size)
+        )
+        return list((await self.db.scalars(stmt)).all()), total or 0
+
+    async def list_by_user(
+        self, user_id: int, f: BookingListFilter
+    ) -> tuple[list[Booking], int]:
+        return await self._list(Booking.created_by_id == user_id, f)
+
+    async def list_requests_for_room(
+        self, room_id: int, f: BookingListFilter
+    ) -> tuple[list[Booking], int]:
+        return await self._list(Booking.room_id == room_id, f)
  
     async def list_for_room(
         self,

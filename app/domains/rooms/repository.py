@@ -24,7 +24,7 @@ class RoomRepository:
         if f.building_id is not None:
             stmt = stmt.where(Room.building_id == f.building_id)
         if f.capacity_min is not None:
-            stmt = stmt.where(Room.capacity >= f.min_capacity)
+            stmt = stmt.where(Room.capacity >= f.capacity_min)
         if f.type is not None:
             stmt = stmt.where(Room.type == f.type)
         if f.is_active is not None:
@@ -52,8 +52,12 @@ class RoomRepository:
         )
         return await self.db.scalar(stmt)
 
-    async def list(self, f: RoomFilter) -> tuple[list[Room], int]:
+    async def list(
+        self, f: RoomFilter, *, room_ids: list[int] | None = None
+    ) -> tuple[list[Room], int]:
         base = self._apply_filter(select(Room), f)
+        if room_ids is not None:
+            base = base.where(Room.id.in_(room_ids))
         total = await self.db.scalar(
             select(func.count()).select_from(base.subquery())
         )

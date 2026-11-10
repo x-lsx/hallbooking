@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .models import BookingStatus, SourceType
 
@@ -27,6 +27,28 @@ class BookingCalendarResponse(BaseModel):
     start_at: AwareDatetime
     end_at: AwareDatetime
     status: BookingStatus
+
+
+class BookingListFilter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    statuses: list[BookingStatus] = Field(default_factory=list, max_length=4)
+    room_id: int | None = Field(default=None, gt=0)
+    start_at: AwareDatetime | None = None
+    end_at: AwareDatetime | None = None
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=20, ge=1, le=100)
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "BookingListFilter":
+        if self.start_at is not None and self.end_at is not None:
+            if self.end_at <= self.start_at:
+                raise ValueError("Начало периода должно быть раньше конца")
+        return self
+
+    @property
+    def offset(self) -> int:
+        return (self.page - 1) * self.size
  
  
 class BookingResponse(BaseModel):
@@ -34,10 +56,10 @@ class BookingResponse(BaseModel):
  
     id: int
     title: str
-    requester_first_name: str | None
-    requester_last_name: str | None
+    requester_first_name: str
+    requester_last_name: str
     requester_middle_name: str | None
-    requester_phone: str | None
+    requester_phone: str
     created_by_id: int
     room_id: int
     event_id: int
@@ -79,6 +101,11 @@ class BookingOfflineCreate(BookingBase):
     requester_last_name: str = Field(min_length=1, max_length=128)
     requester_middle_name: str | None = Field(default=None, max_length=128)
     requester_phone: str = Field(min_length=5, max_length=20)
+
+    @field_validator("requester_middle_name", mode="before")
+    @classmethod
+    def normalize_middle_name(cls, value: str | None) -> str | None:
+        return value.strip() or None if isinstance(value, str) else value
  
  
 class BookingReject(BaseModel):
